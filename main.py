@@ -1,5 +1,6 @@
 import tkinter as tk
 
+PADDING = 5
 WINDOW_WIDTH = 750
 WINDOW_HEIGHT = 750
 PLAYER_1 = 1
@@ -8,28 +9,36 @@ PLAYER_2 = 2
 highlight: int|None = None
 
 class Piece:
-    def __init__( self, canvas: tk.Canvas, player: int, pieceId: int, row : int, col : int ):
+    def __init__( self, canvas: tk.Canvas, player: int, pieceId: int, row : int, col : int, cellSize : int ):
         self.canvas = canvas
         self.player = player
         self.pieceId = pieceId   
         self.row = row
         self.column = col
+        self.cellSize = cellSize
 
     def draw( self, cellSize: int ):
         x = self.column * cellSize
         y = self.row * cellSize
         self.pieceId = self.canvas.create_oval( 
-                    x + 5, y + 5,
-                    x + cellSize - 5, y + cellSize - 5,
+                    x + PADDING, y + PADDING,
+                    x + cellSize - PADDING, y + cellSize - PADDING,
                     fill="black" 
                 )
         self.canvas.tag_bind( self.pieceId, '<Button-1>', self.onClick )
 
     def onClick( self, event ):
         print( f"Clicked on {self.player}'s piece. Located at position {self.row}, {self.column}" )
+        global highlight
         if highlight != None:
             self.canvas.delete( highlight )
-        highlight = self.canvas
+        x = self.column * self.cellSize
+        y = self.row * self.cellSize
+        highlight = self.canvas.create_rectangle(
+            x + 2, y + 2, 
+            x + self.cellSize - 2, y + self.cellSize - 2,
+            outline="green", width=3
+        )
     
 def do8PieceBoard( canvas: tk.Canvas, cellSize: int ) -> list[list[Piece|None]]:
     player1Coords = [(0,0), (0,1), (0,2), (0,3),
@@ -42,8 +51,7 @@ def do8PieceBoard( canvas: tk.Canvas, cellSize: int ) -> list[list[Piece|None]]:
     for row in range( 8 ):
         for column in range( 8 ):
             if ( row, column ) in player1Coords:
-               
-                newPiece = Piece( canvas, PLAYER_1, id, row, column )
+                newPiece = Piece( canvas, PLAYER_1, id, row, column, cellSize )
                 newPiece.draw( cellSize )
                 newBoardList[ row ][ column ] = newPiece
 
