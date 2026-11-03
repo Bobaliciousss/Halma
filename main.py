@@ -97,6 +97,35 @@ legalHighlights: list[LegalMove]|None = None
 boardList: list[list[Piece|None]]
 cellSize: int = 0
 
+# Returns a list of coordinate tuples that are only based on hops
+def getJumpMoves( originX: int, originY: int, visited=None ):
+    global boardList
+    if visited is None:
+        visited = set()
+    visited.add( ( originX, originY ) )
+    x = originX
+    y = originY
+    maxX = len( boardList[0] )
+    maxY = len( boardList )
+    jumpMoves = []
+    for localX in range( -1, 2 ):
+        neighborX = x + localX
+        if -1 < neighborX and neighborX < maxX:
+            for localY in range( -1, 2 ):
+                neighborY = y + localY
+                if ( ( -1 < neighborY and neighborY < maxY )
+                    and ( (neighborX, neighborY) != (x, y) ) ):
+                        if boardList[ neighborY ][ neighborX ] != None:
+                            jumpX = ( neighborX - x ) + neighborX
+                            jumpY = ( neighborY - y ) + neighborY 
+                            if ( ( ( jumpX, jumpY ) not in visited )
+                                and ( -1 < jumpX and jumpX < maxX ) 
+                                and ( -1 < jumpY and jumpY < maxY )
+                                and boardList[ jumpY ][ jumpX ] == None ):
+                                jumpMoves.append( ( jumpX, jumpY ) )
+                                jumpMoves = jumpMoves + getJumpMoves( jumpX, jumpY, visited )
+    return jumpMoves
+
 # Returns a list of coordinate tuples
 def getLegalMoves( piece : Piece ) -> list[tuple[int,int]]:
     global boardList
@@ -107,20 +136,21 @@ def getLegalMoves( piece : Piece ) -> list[tuple[int,int]]:
     legalMoves = []
     for localX in range( -1, 2 ):
         neighborX = x + localX
-        if -1 < neighborX and neighborX <= maxX:
+        if -1 < neighborX and neighborX < maxX:
             for localY in range( -1, 2 ):
                 neighborY = y + localY
-                if ( ( -1 < neighborY and neighborY <= maxY )
+                if ( ( -1 < neighborY and neighborY < maxY )
                     and ( (neighborX, neighborY) != (x, y) ) ):
                         if boardList[ neighborY ][ neighborX ] == None:
                             legalMoves.append( ( neighborX, neighborY ) )
                         else:
                             jumpX = ( neighborX - x ) + neighborX
                             jumpY = ( neighborY - y ) + neighborY
-                            if ( ( -1 < jumpX and jumpX <= maxX ) 
-                                and ( -1 < jumpY and jumpY <= maxY )
+                            if ( ( -1 < jumpX and jumpX < maxX ) 
+                                and ( -1 < jumpY and jumpY < maxY )
                                 and boardList[ jumpY ][ jumpX ] == None ):
                                 legalMoves.append( ( jumpX, jumpY ) )
+                                legalMoves = legalMoves + getJumpMoves( jumpX, jumpY )
     # print( legalMoves )
     return legalMoves
 
