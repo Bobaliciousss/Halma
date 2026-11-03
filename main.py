@@ -89,7 +89,7 @@ class LegalMove:
         self.owner = ownerPiece
     
     def onClick( self, event ):
-        print( f"Move piece at { self.owner.column }, { self.owner.row } to { self.x }, { self.y }")
+        # print( f"Move piece at { self.owner.column }, { self.owner.row } to { self.x }, { self.y }")
         self.owner.moveTo( self.x, self.y )
 
 highlight: int|None = None
@@ -154,6 +154,44 @@ def getLegalMoves( piece : Piece ) -> list[tuple[int,int]]:
     # print( legalMoves )
     return legalMoves
 
+def do16PieceBoard( canvas: tk.Canvas ) -> list[list[Piece|None]]:
+    player1Coords = [(0,0), (0,1), (0,2), (0,3), (0,4),
+                     (1,0), (1,1), (1,2), (1,3), (1,4),
+                     (2,0), (2,1), (2,2), (2,3),
+                     (3,0), (3,1), (3,2),
+                     (4,0), (4,1)]
+    newBoardList = [ [ None for _ in range( 16 ) ] for _ in range( 16 ) ]
+    global cellSize
+    
+     # Player 1
+    for row in range( 16 ):
+        for column in range( 16 ):
+            if ( row, column ) in player1Coords:
+                newPiece = Piece( canvas, PLAYER_1, id, row, column )
+                newPiece.draw()
+                newBoardList[ row ][ column ] = newPiece
+    
+    return newBoardList
+
+def do10PieceBoard( canvas: tk.Canvas ) -> list[list[Piece|None]]:
+    player1Coords = [(0,0), (0,1), (0,2), (0,3), (0,4),
+                     (1,0), (1,1), (1,2), (1,3),
+                     (2,0), (2,1), (2,2),
+                     (3,0), (3,1),
+                     (4,0)]
+    newBoardList = [ [ None for _ in range( 10 ) ] for _ in range( 10 ) ]
+    global cellSize
+    
+     # Player 1
+    for row in range( 10 ):
+        for column in range( 10 ):
+            if ( row, column ) in player1Coords:
+                newPiece = Piece( canvas, PLAYER_1, id, row, column )
+                newPiece.draw()
+                newBoardList[ row ][ column ] = newPiece
+    
+    return newBoardList
+
 def do8PieceBoard( canvas: tk.Canvas ) -> list[list[Piece|None]]:
     player1Coords = [(0,0), (0,1), (0,2), (0,3),
                      (1,0), (1,1), (1,2),
@@ -172,14 +210,11 @@ def do8PieceBoard( canvas: tk.Canvas ) -> list[list[Piece|None]]:
 
     return newBoardList
     
-def createBoard( boardSize: 8 | 10 | 16 ) -> tuple[ tk.Tk, tk.Canvas ]:
+def createBoard( boardSize: int ) -> tuple[ tk.Tk, tk.Canvas ]:
     root = tk.Tk()
 
     root.title("Halma")
     root.geometry(f"{ WINDOW_WIDTH }x{ WINDOW_HEIGHT }")
-
-    if not ( boardSize == 8 | boardSize == 10 | boardSize == 16 ):
-        boardSize = 8
 
     rows = boardSize
     columns = boardSize
@@ -199,10 +234,13 @@ def createBoard( boardSize: 8 | 10 | 16 ) -> tuple[ tk.Tk, tk.Canvas ]:
     # Display one player’s starting pieces (e.g., white or black circles) 
     # in one corner(canvas.create_oval). 
     global boardList
-    boardList = do8PieceBoard( canvas )
-    print( boardList )
+    if boardSize == 8:
+        boardList = do8PieceBoard( canvas )
+    elif boardSize == 10:
+        boardList = do10PieceBoard( canvas )
+    elif boardSize == 16:
+        boardList = do16PieceBoard( canvas )
     return root, canvas
 
 root, canvas = createBoard( 8 )
-
 root.mainloop()
