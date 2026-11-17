@@ -1,4 +1,5 @@
 import tkinter as tk
+import math
 
 PADDING = 5
 WINDOW_WIDTH = 750
@@ -7,7 +8,8 @@ MARGIN = 50
 BOARD_HEIGHT = WINDOW_HEIGHT - MARGIN*2
 PLAYER_1 = 1 # Red
 PLAYER_2 = 2 # Green
-MOVE_LIMIT = 5 # seconds per move
+MOVE_LIMIT = 30 # seconds per move
+TIMEOUT_LIMIT = 3 # before forfeit
 
 class Piece:
     def __init__( self, canvas: tk.Canvas, player: int, pieceId: int, row : int, col : int ):
@@ -84,7 +86,7 @@ class Piece:
 
         global boardList
         boardList[ self.row ][ self.column ] = None
-        boardList[ newY ][ newX ] = self.player
+        boardList[ newY ][ newX ] = self
         self.canvas.delete( self.pieceId )
         self.row = newY
         self.column = newX
@@ -115,66 +117,133 @@ camp1 = [] # player 1 origin spots
 camp2 = [] # player 2 origin spots
 score1 = 0 # player 1 score
 score2 = 0 # player 2 score
+timeouts1 = 0 # player 1 timeouts
+timeouts2 = 0 # player 2 timeouts
+moves1 = 0 # player 1 moves
+moves2 = 0 # player 2 moves
+victor = None
+
+def victory( playerInt ):
+    global victor
+    if victor == None:
+        victor = playerInt
+    else:
+        return
+    
+    if playerInt == PLAYER_1:
+        winningColor = "RED"
+        score = score1
+        moves = moves1
+    else:
+        winningColor = "GREEN"
+        score = score2
+        moves = moves2
+
+    popupWidth = WINDOW_WIDTH*0.5
+    popupHeight = WINDOW_HEIGHT*0.25
+    x1, y1 = WINDOW_WIDTH/2 - popupWidth/2, WINDOW_HEIGHT/2 - popupHeight/2
+    x2, y2 = WINDOW_WIDTH/2 + popupWidth/2, WINDOW_HEIGHT/2 + popupHeight/2
+    canvas.delete("popup")
+    canvas.create_rectangle( 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, fill="black", stipple="gray50",outline="", tags="popup" )
+    canvas.create_rectangle( x1, y1, x2, y2, fill="white", outline="black", tags="popup" )
+    canvas.create_text( WINDOW_WIDTH*0.5, WINDOW_HEIGHT*0.45, text=f"{winningColor} Wins!", font=("Arial", 22, "bold"), fill="black", tags="popup" )
+    canvas.create_text( WINDOW_WIDTH*0.5, WINDOW_HEIGHT*0.50, text=f"Score: {score:.3f}", font=("Arial", 12), fill="black", tags="popup" )
+    canvas.create_text( WINDOW_WIDTH*0.5, WINDOW_HEIGHT*0.53, text=f"Moves: {moves}", font=("Arial", 12), fill="black", tags="popup" )
 
 def getPieceDistanceScore( piece: Piece ):
-    return 1/10
-    
+    if piece.player == PLAYER_1:
+        goals = camp2
+    else:
+        goals = camp1
+
+    closestGoal = None
+    xDist = None
+    yDist = None
+    for goal in goals:
+        tempXDist = goal[1] - piece.column
+        tempYDist = goal[0] - piece.row
+        if closestGoal == None:
+            closestGoal = goal
+            xDist = goal[1] - piece.column
+            yDist = goal[0] - piece.row
+        elif tempXDist <= xDist and tempYDist <= yDist:
+                closestGoal = goal
+
+    denominator = math.sqrt( math.pow(xDist,2) + math.pow(yDist,2) )
+    return 1/denominator
 
 def scoreUpdate():
-    global score1, score2
+    global score1, score2, moves1, moves2
     newScore1 = 0
     newScore2 = 0
-    # Loop through board rows
+    victoryFlag1 = True
+    victoryFlag2 = True
     for row in boardList:
-        # Loops through board columns
         for cell in row:
-            # If piece exists
             if cell != None:
-                print( cell )
                 if cell.player == PLAYER_1:
-                    # If in other player's goal
                     if (cell.row,cell.column) in camp2:
-                        # Add 1 to piece's player's score
-                        score1 += 1
-                    # Else (not in other player's goal)
+                        newScore1 += 1
                     else:
-                        # Add getPieceDistanceScore to piece's player's score
-                        score1 += getPieceDistanceScore( cell )
+                        newScore1 += getPieceDistanceScore( cell )
+                        victoryFlag1 = False
                 elif cell.player == PLAYER_2:
                     if (cell.row,cell.column) in camp1:
-                        score2 += 1
+                        newScore2 += 1
                     else:
-                        score2 += getPieceDistanceScore( cell )
+                        newScore2 += getPieceDistanceScore( cell )
+                        victoryFlag2 = False
                 
     score1 = newScore1
     score2 = newScore2
-    canvas.itemconfigure(statusText, text=f"RED:{score1}  GREEN:{score2}")
+    canvas.itemconfigure(scoreText, text=f"RED:{score1:.3f}  GREEN:{score2:.3f}")
+    if victoryFlag1:
+        victory( PLAYER_1 )
+    elif victoryFlag2:
+        victory( PLAYER_2 )
 
 def onMove():
-    global timeLeft, timerId, currentPlayer
+    global timeLeft, timerId, currentPlayer, moves1, moves2
     if timerId is not None:
         root.after_cancel(timerId)
     timeLeft = MOVE_LIMIT
     if currentPlayer == PLAYER_1:
+        moves1 += 1
         currentPlayer = PLAYER_2
         canvas.itemconfigure(statusText, text="GREEN's Move")
     else:
+        moves2 += 1
         currentPlayer = PLAYER_1
         canvas.itemconfigure(statusText, text="RED's Move")
+
     scoreUpdate()
     countdown()
     
 
 def countdown():
-    global timeLeft, timerId
+    global timeLeft, timerId, timeouts1, timeouts2
     canvas.itemconfigure(timerText, text=f"Time: {timeLeft}")
     
-    if timeLeft > 0:
+    if timeLeft > 0 and victor == None:
         timeLeft -= 1
         
         timerId = root.after(1000, countdown)
     else:
-        canvas.itemconfigure(statusText, text="Time's up! Turn skipped.")
+        if currentPlayer == PLAYER_1:
+            timeouts1 += 1
+            canvas.itemconfigure(msgText, text=f"RED timeout {timeouts1}/3.")
+            if timeouts1 >= TIMEOUT_LIMIT:
+                victory( PLAYER_2 )
+                return
+            
+        else:
+            timeouts2 += 1
+            canvas.itemconfigure(msgText, text=f"GREEN timeout {timeouts2}/3.")
+            if timeouts2 >= TIMEOUT_LIMIT:
+                victory( PLAYER_1 )
+                return
+                
+        onMove()
 
 def getJumpMoves( originX: int, originY: int, visited=None ):
     global boardList
@@ -202,6 +271,7 @@ def getJumpMoves( originX: int, originY: int, visited=None ):
                                 and boardList[ jumpY ][ jumpX ] == None ):
                                 jumpMoves.append( ( jumpX, jumpY ) )
                                 jumpMoves = jumpMoves + getJumpMoves( jumpX, jumpY, visited )
+
     return jumpMoves
 
 # Returns a list of coordinate tuples
@@ -248,8 +318,6 @@ def doPieceBoard( newBoardList, canvas: tk.Canvas, size: int ):
                 newPiece = Piece( canvas, PLAYER_2, id, row, column )
                 newPiece.draw()
                 newBoardList[ row ][ column ] = newPiece
-
-
 
     return newBoardList
 
@@ -329,7 +397,7 @@ def createBoard( boardSize: int ) -> tuple[ tk.Tk, tk.Canvas ]:
         boardList = do16PieceBoard( canvas )
     return root, canvas
 
-root, canvas = createBoard( 10 )
+root, canvas = createBoard( 8 )
 timerText = canvas.create_text(WINDOW_WIDTH*0.10, MARGIN/2, text=f"Time: {MOVE_LIMIT}", width=WINDOW_WIDTH*0.25, font=("Arial", 24, "bold"))
 statusText = canvas.create_text(WINDOW_WIDTH*0.325, MARGIN/2, text="RED's Turn", width=WINDOW_WIDTH*0.25, font=("Arial", 18))
 scoreText = canvas.create_text(WINDOW_WIDTH*0.60, MARGIN/2, text="RED:0  GREEN:0", width=WINDOW_WIDTH*0.25, font=("Arial", 12))
